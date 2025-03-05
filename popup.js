@@ -1,44 +1,34 @@
 document.addEventListener("DOMContentLoaded", async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-  chrome.scripting.executeScript({
-    target: { tabId: tab.id },
-    function: getH2Elements
-  }, (result) => {
-    const h2List = result[0].result;
-    const ul = document.getElementById("h2-list");
-    ul.innerHTML = ""; 
+  document.getElementById("search-button").addEventListener("click", () => {
+    const query = document.getElementById("search-query").value.trim();
+    if (!query) return;
 
-    if (h2List.length === 0) {
-      ul.innerHTML = "<li>No H2 elements found</li>";
-      return;
-    }
+    // Send query to content script
+    chrome.tabs.sendMessage(tab.id, { action: "searchElements", query }, (response) => {
+      if (chrome.runtime.lastError) {
+        console.error(chrome.runtime.lastError.message);
+        return;
+      }
 
-    h2List.forEach(({ text, index }) => {
-      const li = document.createElement("li");
-      li.textContent = text;
-      li.addEventListener("click", () => {
-        chrome.scripting.executeScript({
-          target: { tabId: tab.id },
-          function: scrollToH2,
-          args: [index]
+      const elements = response?.elements || [];
+      const ul = document.getElementById("elements-list");
+      ul.innerHTML = "";
+
+      if (elements.length === 0) {
+        ul.innerHTML = "<li>No elements found</li>";
+        return;
+      }
+
+      elements.forEach(({ text, index }) => {
+        const li = document.createElement("li");
+        li.textContent = text || "[No Text Content]";
+        li.addEventListener("click", () => {
+          chrome.tabs.sendMessage(tab.id, { action: "scrollToElement", index, query });
         });
+        ul.appendChild(li);
       });
-      ul.appendChild(li);
     });
   });
 });
-
-function getH2Elements() {
-  return [...document.querySelectorAll("h2")].map((h2, index) => ({
-    text: h2.textContent.trim(),
-    index
-  }));
-}
-
-function scrollToH2(index) {
-  const h2Elements = document.querySelectorAll("h2");
-  if (h2Elements[index]) {
-    h2Elements[index].scrollIntoView({ behavior: "smooth", block: "start" });
-  }
-}

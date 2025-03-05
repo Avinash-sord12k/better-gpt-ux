@@ -1,16 +1,23 @@
-function addScrollBehavior() {
-  const h2Elements = [...document.getElementsByTagName('h2')];
-  h2Elements.forEach(h2 => {
-    h2.style.cursor = 'pointer';
-    h2.addEventListener('click', () => {
-      h2.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
-  });
+function searchElements(query) {
+  const elements = [...document.querySelectorAll(query)];
+  return elements.map((el, index) => ({
+    text: el.textContent.trim().substring(0, 50), // Limit text length
+    index
+  }));
 }
 
-function runEvery10Seconds() {
-  addScrollBehavior();
-  setTimeout(runEvery10Seconds, 10000);
+function scrollToElement(index, query) {
+  const elements = document.querySelectorAll(query);
+  if (elements[index]) {
+    elements[index].scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 }
 
-runEvery10Seconds();
+// Listen for messages from popup.js
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === "searchElements") {
+    sendResponse({ elements: searchElements(message.query) });
+  } else if (message.action === "scrollToElement") {
+    scrollToElement(message.index, message.query);
+  }
+});
